@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.git
+*.ipynb
+.env
+governance.db

@@ -1,0 +1,8 @@
+chromadb==1.5.9
+google-genai==2.12.1
+langgraph==1.2.11
+langchain-core
+langchain-google-genai==4.4.0
+langfuse==4.15.4
+gradio==6.26.0
+pandas==2.2.3
