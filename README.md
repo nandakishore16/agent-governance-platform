@@ -4,7 +4,7 @@ A multi-agent system built with LangGraph that researches a task, takes
 action on it, and reviews its own work — while every step is logged,
 costed, traced, and evaluated for governance and observability purposes.
 
-Live demo: https://governance-platform.ashysmoke-a043016a.westus2.azurecontainerapps.io/
+Live demo:(not responding, will make a demo local video) https://governance-platform.ashysmoke-a043016a.westus2.azurecontainerapps.io/
 
 ## What it does
 
