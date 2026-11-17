@@ -4,7 +4,7 @@ A multi-agent system built with LangGraph that researches a task, takes
 action on it, and reviews its own work — while every step is logged,
 costed, traced, and evaluated for governance and observability purposes.
 
-Live demo:(not responding, will make a demo local video) https://governance-platform.ashysmoke-a043016a.westus2.azurecontainerapps.io/
+
 
 ## What it does
 
@@ -99,10 +99,12 @@ dashboard's **Eval Suite Results** tab.
   aren't set, the app runs normally and just skips external tracing —
   SQLite logging (and the dashboard) work independently of Langfuse.
 
-## Deployment notes
+### Deployment Status
 
-Deployed via: Docker image built locally → pushed to Azure Container
-Registry (`governanceacr16.azurecr.io`) → deployed to Azure Container
-Apps with external ingress on port 7860. (Cloud-side `az acr build` was
-blocked by Azure's ACR Tasks restriction on new Free Trial subscriptions;
-building locally and `docker push`-ing directly to ACR bypassed this.)
+The application was previously containerized with Docker and deployed to Azure Container Apps using Azure Container Registry.
+
+The original Azure-hosted demo is currently unavailable following the expiration of the development subscription.
+
+The source code, Docker configuration, and local setup instructions remain available in this repository.
+
+A new public demonstration deployment is planned.
