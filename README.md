@@ -11,7 +11,7 @@ costed, traced, and evaluated for governance and observability purposes.
 Given a task (e.g. *"Research agent governance principles, then write a
 summary file"*), the system:
 
-1. **Coordinates** — a router agent decides which specialist should act next.
+1. **Coordinates** — the coordinator uses deterministic Python routing rules which specialist should act next.
 2. **Researches** — a research agent pulls relevant context from a
    ChromaDB knowledge base (5 governance documents, embedded with Gemini)
    via a `retrieve_governance_knowledge` tool.
@@ -22,10 +22,7 @@ summary file"*), the system:
    supported by the research and well-targeted at the task. If not, it can
    send the doer back to revise once (bounded — no infinite loops).
 
-Every LLM call and tool call is logged to SQLite with token counts, cost,
-and latency, and (optionally) traced in Langfuse. A Gradio dashboard
-surfaces cost ranking, tool usage, error rates, anomaly detection, eval
-suite results, and a bounded-autonomy escalation check.
+the current implementation records LLM token totals and latency, tool events, and estimated run-level cost, and (optionally) traced in Langfuse. A Gradio dashboard surfaces cost ranking, tool usage, error rates, anomaly detection, eval suite results, and a bounded-autonomy escalation check.
 
 ## Architecture
 
