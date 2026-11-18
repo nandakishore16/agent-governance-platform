@@ -4,7 +4,17 @@ A multi-agent system built with LangGraph that researches a task, takes
 action on it, and reviews its own work — while every step is logged,
 costed, traced, and evaluated for governance and observability purposes.
 
+## Project Status
 
+**Status:** Functional prototype — ongoing development.
+
+This project demonstrates multi-agent orchestration, retrieval-augmented generation, bounded action execution, evaluation, and execution observability.
+
+The current Gradio interface is a monitoring dashboard. Agent workflows are executed programmatically, while the dashboard displays previously recorded execution and evaluation data.
+
+The previously hosted Azure Container Apps demo is no longer available because the development subscription expired. Local execution and Docker deployment are supported.
+
+**Important:** File-writing and notification tools are simulated. They do not modify files or send real notifications.
 
 ## What it does
 
