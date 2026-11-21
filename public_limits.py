@@ -10,6 +10,7 @@ import os
 import sqlite3
 import threading
 import gradio as gr
+import logging
 from contextlib import contextmanager
 
 from agent.config import DB_PATH
@@ -23,9 +24,17 @@ _RUNNING = threading.BoundedSemaphore(1)
 
 
 def _visitor_hash(request):
+    # Use the address reported by Gradio/ASGI, never an untrusted forwarded
+    # header. This is best-effort rate limiting, NOT a user identity.
     client = getattr(request, "client", None)
-    address = getattr(client, "host", None) or "unknown"
-    return hashlib.sha256(address.encode("utf-8")).hexdigest()
+    address = getattr(client, "host", None)
+    if not address:
+        # Do not merge unidentified visitors into a shared "unknown" bucket.
+        raise RuntimeError("Client address unavailable for public quota enforcement")
+    salt = os.getenv("QUOTA_HASH_SALT", "")
+    if PUBLIC_DEPLOYMENT and len(salt) < 16:
+        raise RuntimeError("Public quota requires QUOTA_HASH_SALT (16+ characters)")
+    return hashlib.sha256((salt + ":" + address).encode("utf-8")).hexdigest()
 
 
 def _today():
@@ -69,7 +78,7 @@ def _storage():
     return _sqlite_connection(), False
 
 
-def quota_message(request):
+def quota_message(request: gr.Request):
     try:
         conn, pg = _storage()
         try:
@@ -81,6 +90,7 @@ def quota_message(request):
                 f"{max(0, MAX_VISITOR_DAILY-own_used)}/{MAX_VISITOR_DAILY} for this visitor. "
                 "Demo Mode is always available.")
     except Exception:
+        logging.exception("Quota display unavailable")
         return "Live quota is temporarily unavailable. Demo Mode is still available."
 
 
@@ -113,6 +123,7 @@ def reserve_run(request: gr.Request):
         finally:
             conn.close()
     except Exception:
+        logging.exception("Live quota reservation unavailable")
         return "Live execution temporarily unavailable: quota storage error. Explore Demo Mode instead."
 
 

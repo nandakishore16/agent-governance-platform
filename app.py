@@ -18,7 +18,7 @@ import logging
 from agent.config import DB_PATH
 from agent.db import setup_database
 from public_demo import SAMPLE_TASK, SAMPLE_FINDINGS, SAMPLE_ACTIONS, SAMPLE_EVENTS, FAILURE_EVENTS
-from public_limits import MAX_PROMPT_CHARS, execution_slot, quota_message, reserve_run
+from public_limits import MAX_PROMPT_CHARS, execution_slot, quota_message, reserve_run, PUBLIC_DEPLOYMENT, QUOTA_DATABASE_URL
 def show_quota(request: gr.Request):
     return quota_message(request)
 
@@ -218,6 +218,8 @@ if __name__ == "__main__":
 
     port = int(os.environ.get("PORT", 7860))
 
+    if PUBLIC_DEPLOYMENT and not QUOTA_DATABASE_URL:
+        logging.warning("Public mode without PostgreSQL: live execution will fail closed")
     dashboard.launch(
         server_name="0.0.0.0",
         server_port=port,
