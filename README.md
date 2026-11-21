@@ -4,24 +4,14 @@ A multi-agent system built with LangGraph that researches a task, takes
 action on it, and reviews its own work — while every step is logged,
 costed, traced, and evaluated for governance and observability purposes.
 
-## Project Status
-
-**Status:** Functional prototype — ongoing development.
-
-This project demonstrates multi-agent orchestration, retrieval-augmented generation, bounded action execution, evaluation, and execution observability.
-
-The current Gradio interface is a monitoring dashboard. Agent workflows are executed programmatically, while the dashboard displays previously recorded execution and evaluation data.
-
-The previously hosted Azure Container Apps demo is no longer available because the development subscription expired. Local execution and Docker deployment are supported.
-
-**Important:** File-writing and notification tools are simulated. They do not modify files or send real notifications.
+Live demo:(not responding, will make a demo local video) https://governance-platform.ashysmoke-a043016a.westus2.azurecontainerapps.io/
 
 ## What it does
 
 Given a task (e.g. *"Research agent governance principles, then write a
 summary file"*), the system:
 
-1. **Coordinates** — the coordinator uses deterministic Python routing rules which specialist should act next.
+1. **Coordinates** — a router agent decides which specialist should act next.
 2. **Researches** — a research agent pulls relevant context from a
    ChromaDB knowledge base (5 governance documents, embedded with Gemini)
    via a `retrieve_governance_knowledge` tool.
@@ -32,7 +22,10 @@ summary file"*), the system:
    supported by the research and well-targeted at the task. If not, it can
    send the doer back to revise once (bounded — no infinite loops).
 
-the current implementation records LLM token totals and latency, tool events, and estimated run-level cost, and (optionally) traced in Langfuse. A Gradio dashboard surfaces cost ranking, tool usage, error rates, anomaly detection, eval suite results, and a bounded-autonomy escalation check.
+Every LLM call and tool call is logged to SQLite with token counts, cost,
+and latency, and (optionally) traced in Langfuse. A Gradio dashboard
+surfaces cost ranking, tool usage, error rates, anomaly detection, eval
+suite results, and a bounded-autonomy escalation check.
 
 ## Architecture
 
@@ -106,12 +99,10 @@ dashboard's **Eval Suite Results** tab.
   aren't set, the app runs normally and just skips external tracing —
   SQLite logging (and the dashboard) work independently of Langfuse.
 
-### Deployment Status
+## Deployment notes
 
-The application was previously containerized with Docker and deployed to Azure Container Apps using Azure Container Registry.
-
-The original Azure-hosted demo is currently unavailable following the expiration of the development subscription.
-
-The source code, Docker configuration, and local setup instructions remain available in this repository.
-
-A new public demonstration deployment is planned.
+Deployed via: Docker image built locally → pushed to Azure Container
+Registry (`governanceacr16.azurecr.io`) → deployed to Azure Container
+Apps with external ingress on port 7860. (Cloud-side `az acr build` was
+blocked by Azure's ACR Tasks restriction on new Free Trial subscriptions;
+building locally and `docker push`-ing directly to ACR bypassed this.)

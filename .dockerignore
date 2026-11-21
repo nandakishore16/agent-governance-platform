@@ -1,6 +1,11 @@
+.venv/
+venv/
 __pycache__/
 *.pyc
-.git
-*.ipynb
 .env
-governance.db
+.env.*
+.git/
+*.db
+*.sqlite
+*.sqlite3
+*.log
