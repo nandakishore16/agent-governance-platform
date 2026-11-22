@@ -96,6 +96,8 @@ def execute_agent(task, budget, request: gr.Request):
         return "Enter a task first.", [], [], "", pd.DataFrame()
     if len(task) > MAX_PROMPT_CHARS:
         return (f"Task too long (maximum {MAX_PROMPT_CHARS} characters).", [], [], "", pd.DataFrame())
+    if isinstance(budget, bool) or not isinstance(budget, (int, float)) or budget not in (1, 2, 3, 4, 5):
+        return ("Invalid action budget (allowed: 1–5).", [], [], "", pd.DataFrame())
     with execution_slot() as acquired:
         if not acquired:
             return ("Another live run is executing. Please try later or explore Demo Mode.", [], [], "", pd.DataFrame())
@@ -143,6 +145,7 @@ def build_dashboard():
             gr.Markdown("### Recorded successful execution (sample data)\nThis example is shown immediately and does **not** call Gemini. The notification tool is simulated.")
             gr.Textbox(value=SAMPLE_TASK, label="Recorded task", interactive=False)
             gr.Markdown("**Result:** Approved | **LLM calls:** 3 | **Tokens:** 793 | **Action budget remaining:** 4/5")
+            gr.Textbox(value="approved", label="Reviewer verdict (recorded sample)", interactive=False)
             gr.JSON(value=SAMPLE_FINDINGS, label="Research findings (sanitized sample)")
             gr.JSON(value=SAMPLE_ACTIONS, label="Tool execution (simulated sample)")
             gr.Dataframe(value=SAMPLE_EVENTS, label="Recorded execution events", interactive=False)
