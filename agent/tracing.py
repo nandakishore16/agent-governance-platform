@@ -33,7 +33,7 @@ def run_with_langfuse(task: str, autonomy_budget: int = 5) -> dict:
     }
     context = (langfuse.start_as_current_observation(
         as_type="span", name="agent-governance-run",
-        input={"task": task}, metadata={"sqlite_run_id": run_id})
+        input={"task": "[redacted]"}, metadata={"sqlite_run_id": run_id})
         if langfuse else nullcontext(None))
     final_state = None
     try:

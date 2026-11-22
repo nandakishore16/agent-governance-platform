@@ -6,7 +6,6 @@ LangGraph node functions. Final versions after all fixes through Week 15:
 """
 import time
 import os
-from contextlib import nullcontext
 
 from agent.observability import observation
 
@@ -20,9 +19,9 @@ from agent.tools import research_tools, action_tools
 
 # --- LLM setup ---
 _base_llm = ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", google_api_key=GEMINI_API_KEY, max_output_tokens=1024)
-llm_with_research_tools = _base_llm.bind_tools(research_tools).with_retry(stop_after_attempt=2, wait_exponential_jitter=True)
-llm_with_action_tools = _base_llm.bind_tools(action_tools).with_retry(stop_after_attempt=2, wait_exponential_jitter=True)
-llm = _base_llm.with_retry(stop_after_attempt=2, wait_exponential_jitter=True)
+llm_with_research_tools = _base_llm.bind_tools(research_tools)
+llm_with_action_tools = _base_llm.bind_tools(action_tools)
+llm = _base_llm
 
 OUTPUT_COST_PER_M = 0.30
 
@@ -36,7 +35,7 @@ def update_llm_observation(span, response, err, duration_ms):
     if span is None:
         return
     if err or response is None:
-        span.update(output={"error": err}, metadata={"duration_ms": duration_ms})
+        span.update(output={"error_type": err}, metadata={"duration_ms": duration_ms})
         return
     usage = get_usage(response)
     usage_details = {
@@ -48,7 +47,7 @@ def update_llm_observation(span, response, err, duration_ms):
         model=getattr(_base_llm, "model", None) or "unknown",
         usage_details=usage_details,
         output={"tool_calls": [c["name"] for c in (response.tool_calls or [])],
-                "content": str(response.content)[:500]},
+                "content": "[redacted]"},
         metadata={"duration_ms": duration_ms},
     )
 
@@ -58,12 +57,12 @@ def call_with_retry(run_id, node_name, fn, *args, **kwargs):
     try:
         return fn(*args, **kwargs), None
     except Exception as e:
-        log_event(run_id, "error", node_name, str(args)[:300], f"attempt 1 failed: {e}", 0)
+        log_event(run_id, "error", node_name, "[redacted]", f"attempt 1 failed: {type(e).__name__}", 0)
         try:
             return fn(*args, **kwargs), None
         except Exception as e2:
-            log_event(run_id, "error", node_name, str(args)[:300], f"attempt 2 failed: {e2}", 0)
-            return None, str(e2)
+            log_event(run_id, "error", node_name, "[redacted]", f"attempt 2 failed: {type(e2).__name__}", 0)
+            return None, type(e2).__name__
 
 
 # --- Error-safe tool node (Week 8) ---
@@ -72,7 +71,12 @@ def safe_tool_node(tools_list, node_name):
 
     def _node(state: AgentState) -> dict:
         last_msg = state["messages"][-1]
-        tool_call = last_msg.tool_calls[0]
+        calls = getattr(last_msg, "tool_calls", None) or []
+        if len(calls) != 1:
+            err = "Expected exactly one tool call; refusing multiple or missing calls"
+            log_event(state["run_id"], "error", node_name, "[redacted]", err, 0)
+            return {"error": err}
+        tool_call = calls[0]
         tool_name = tool_call["name"]
         t = tools_by_name.get(tool_name)
         if t is None:
@@ -87,12 +91,12 @@ def safe_tool_node(tools_list, node_name):
                 raise RuntimeError(f"Injected test failure for {tool_name}")
             return t.invoke(args)
         start = time.perf_counter()
-        with observation(f"tool:{tool_name}", "span", {"tool": tool_name, "arguments": str(tool_call["args"])[:500]}) as span:
+        with observation(f"tool:{tool_name}", "span", {"tool": tool_name, "arguments": "[redacted]"}) as span:
             result, err = call_with_retry(state["run_id"], f"{node_name}_tool", invoke_tool, tool_call["args"])
             duration_ms = int((time.perf_counter() - start) * 1000)
-            log_event_timed(state["run_id"], "tool_execution", tool_name, str(tool_call["args"])[:500], str(result if err is None else err)[:500], 0, duration_ms)
+            log_event_timed(state["run_id"], "tool_execution", tool_name, "[redacted]", "[redacted]" if err is None else err, 0, duration_ms)
             if span is not None:
-                span.update(output={"result": str(result)[:500] if err is None else None, "error": err, "duration_ms": duration_ms})
+                span.update(output={"result": "[redacted]" if err is None else None, "error": err, "duration_ms": duration_ms})
                 if err:
                     span.update(level="ERROR", status_message=err)
         if err:
@@ -114,7 +118,7 @@ def researcher_node(state: AgentState) -> dict:
         "to gather relevant information for the task. Once you have enough information, summarize your findings clearly."))
     task_msg = HumanMessage(content=state["task"])
     start = time.perf_counter()
-    with observation("llm:researcher", "generation", {"task": state["task"][:500]}) as span:
+    with observation("llm:researcher", "generation", {"task": "[redacted]"}) as span:
         response, err = call_with_retry(state["run_id"], "researcher", llm_with_research_tools.invoke, [system_msg, task_msg])
         duration_ms = int((time.perf_counter() - start) * 1000)
         if span is not None:
@@ -123,7 +127,9 @@ def researcher_node(state: AgentState) -> dict:
         return {"error": err}
     usage = get_usage(response)
     content_text = response.content if isinstance(response.content, str) else str(response.content)
-    log_event_timed(state["run_id"], "llm_call", None, state["task"], content_text[:500], usage.get("total_tokens", 0), duration_ms)
+    log_event_timed(state["run_id"], "llm_call", None, "[redacted]", "[redacted]", usage.get("total_tokens", 0), duration_ms)
+    if not getattr(response, "tool_calls", None):
+        return {"messages": [response], "error": "Researcher did not request retrieval; stopping to avoid a retry loop"}
     return {"messages": [response]}
 
 
@@ -132,7 +138,7 @@ def capture_findings_node(state: AgentState) -> dict:
         return {}
     last_msg = state["messages"][-1]
     if isinstance(last_msg, ToolMessage):
-        log_event(state["run_id"], "tool_call", last_msg.name, "", str(last_msg.content)[:500], 0)
+        log_event(state["run_id"], "tool_call", last_msg.name, "", "[redacted]", 0)
         return {"findings": state.get("findings", []) + [{"source": "retrieve_governance_knowledge", "content": last_msg.content}]}
     return {}
 
@@ -145,7 +151,7 @@ def doer_node(state: AgentState) -> dict:
     findings_summary = "\n".join(f["content"] for f in state.get("findings", []))
     task_msg = HumanMessage(content=f"Task: {state['task']}\n\nResearch findings:\n{findings_summary}")
     start = time.perf_counter()
-    with observation("llm:doer", "generation", {"task": state["task"][:500]}) as span:
+    with observation("llm:doer", "generation", {"task": "[redacted]"}) as span:
         response, err = call_with_retry(state["run_id"], "doer", llm_with_action_tools.invoke, [system_msg, task_msg])
         duration_ms = int((time.perf_counter() - start) * 1000)
         if span is not None:
@@ -154,7 +160,9 @@ def doer_node(state: AgentState) -> dict:
         return {"error": err}
     usage = get_usage(response)
     content_text = response.content if isinstance(response.content, str) else str(response.content)
-    log_event_timed(state["run_id"], "llm_call", None, findings_summary[:500], content_text[:500], usage.get("total_tokens", 0), duration_ms)
+    log_event_timed(state["run_id"], "llm_call", None, "[redacted]", "[redacted]", usage.get("total_tokens", 0), duration_ms)
+    if not getattr(response, "tool_calls", None):
+        return {"messages": [response], "error": "Doer did not request an action tool; stopping safely"}
     return {"messages": [response]}
 
 
@@ -163,7 +171,7 @@ def capture_action_node(state: AgentState) -> dict:
         return {}
     last_msg = state["messages"][-1]
     if isinstance(last_msg, ToolMessage):
-        log_event(state["run_id"], "tool_call", last_msg.name, "", str(last_msg.content)[:500], 0)
+        log_event(state["run_id"], "tool_call", last_msg.name, "", "[redacted]", 0)
         return {"action_log": state.get("action_log", []) + [{"tool": last_msg.name, "result": last_msg.content}],
                 "autonomy_budget": state["autonomy_budget"] - 1}
     return {"autonomy_budget": state["autonomy_budget"] - 1}
@@ -183,7 +191,7 @@ def reviewer_node(state: AgentState) -> dict:
         f"Task: {state['task']}\n\nFindings:\n{findings_summary}\n\nAction taken: {last_action}"
     ))
     start = time.perf_counter()
-    with observation("llm:reviewer", "generation", {"task": state["task"][:500]}) as span:
+    with observation("llm:reviewer", "generation", {"task": "[redacted]"}) as span:
         response, err = call_with_retry(state["run_id"], "reviewer", llm.invoke, [system_msg, review_msg])
         duration_ms = int((time.perf_counter() - start) * 1000)
         if span is not None:
@@ -198,8 +206,8 @@ def reviewer_node(state: AgentState) -> dict:
         state["run_id"],
         "llm_call",
         None,
-        str(last_action)[:300],
-        content_text[:200],
+        "[redacted]",
+        "[redacted]",
         usage.get("total_tokens", 0),
         duration_ms
     )
