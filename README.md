@@ -1,10 +1,19 @@
 # Agent Governance & Cost Observability Platform
 
-A multi-agent system built with LangGraph that researches a task, takes
-action on it, and reviews its own work — while every step is logged,
-costed, traced, and evaluated for governance and observability purposes.
+**Live Demo:** https://agent-governance-platform.onrender.com/
 
-Live demo:(not responding, will make a demo local video) https://governance-platform.ashysmoke-a043016a.westus2.azurecontainerapps.io/
+**Deployment:** Docker + Render
+
+A multi-agent AI governance and observability platform built using LangGraph, Gemini, ChromaDB, Langfuse, and Gradio.
+
+## Try the Application
+
+- **Demo Mode:** Explore sample execution results without consuming API quota.
+- **Live Agent:** Execute a governed AI workflow with limited daily usage.
+- **Observability:** Inspect reviewer verdicts, tool execution events, token usage, and execution traces.
+
+> Note: The application runs on Render's free tier, so initial loading may take some time after inactivity.
+
 
 ## What it does
 
